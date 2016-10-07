@@ -11,7 +11,11 @@ namespace PropertyInfo\Extractors;
 
 use phpDocumentor\Reflection\ClassReflector;
 use phpDocumentor\Reflection\DocBlock;
-use phpDocumentor\Reflection\FileReflector;
+use phpDocumentor\Reflection\File\LocalFile;
+use phpDocumentor\Reflection\Php\Class_;
+use phpDocumentor\Reflection\Php\File;
+use phpDocumentor\Reflection\Php\Project;
+use phpDocumentor\Reflection\Php\ProjectFactory;
 use PropertyInfo\PropertyDescriptionInfoInterface;
 use PropertyInfo\PropertyTypeInfoInterface;
 use PropertyInfo\Type;
@@ -28,13 +32,19 @@ class PhpDocExtractor implements PropertyDescriptionInfoInterface, PropertyTypeI
     const MUTATOR = 2;
 
     /**
-     * @var FileReflector[]
+     * @var LocalFile[]
      */
-    private static $fileReflectors = array();
+    private static $localFiles = array();
+
     /**
      * @var DocBlock[]
      */
     private static $docBlocks = array();
+
+    /**
+     * @var Project
+     */
+    private static $project;
 
     /**
      * {@inheritdoc}
@@ -46,7 +56,7 @@ class PhpDocExtractor implements PropertyDescriptionInfoInterface, PropertyTypeI
             return;
         }
 
-        $shortDescription = $docBlock->getShortDescription();
+        $shortDescription = $docBlock->getSummary();
         if ($shortDescription) {
             return $shortDescription;
         }
@@ -70,7 +80,7 @@ class PhpDocExtractor implements PropertyDescriptionInfoInterface, PropertyTypeI
             return;
         }
 
-        $contents = $docBlock->getLongDescription()->getContents();
+        $contents = $docBlock->getDescription()->render();
 
         return '' === $contents ? null : $contents;
     }
@@ -136,7 +146,7 @@ class PhpDocExtractor implements PropertyDescriptionInfoInterface, PropertyTypeI
      *
      * @param \ReflectionClass $reflectionClass
      *
-     * @return FileReflector|null
+     * @return File|null
      */
     private function getFileReflector(\ReflectionClass $reflectionClass)
     {
@@ -144,14 +154,15 @@ class PhpDocExtractor implements PropertyDescriptionInfoInterface, PropertyTypeI
             return;
         }
 
-        if (isset(self::$fileReflectors[$fileName])) {
-            return self::$fileReflectors[$fileName];
+        if (!isset(self::$localFiles[$fileName])) {
+            self::$localFiles[$fileName] = new LocalFile($fileName);
         }
 
-        self::$fileReflectors[$fileName] = new FileReflector($fileName);
-        self::$fileReflectors[$fileName]->process();
+        $factory = ProjectFactory::createInstance();
+        $project = $factory->create('', self::$localFiles);
 
-        return self::$fileReflectors[$fileName];
+
+        return $project->getFiles()[$fileName];
     }
 
     /**
@@ -277,7 +288,7 @@ class PhpDocExtractor implements PropertyDescriptionInfoInterface, PropertyTypeI
             $className = $this->getClassName($classReflector);
 
             if ($className === $reflectionClass->name) {
-                if ($methodReflector = $classReflector->getMethod($methodName)) {
+                if ($methodReflector = $classReflector->getMethods()[$methodName]) {
                     return array($methodReflector->getDocBlock(), $prefix);
                 }
             }
@@ -287,13 +298,13 @@ class PhpDocExtractor implements PropertyDescriptionInfoInterface, PropertyTypeI
     /**
      * Gets the normalized class name (without trailing backslash).
      *
-     * @param ClassReflector $classReflector
+     * @param Class_ $classReflector
      *
      * @return string
      */
-    private function getClassName(ClassReflector $classReflector)
+    private function getClassName(Class_ $classReflector)
     {
-        $className = $classReflector->getName();
+        $className = (string)$classReflector->getFqsen();
         if ('\\' === $className[0]) {
             return substr($className, 1);
         }

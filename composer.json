@@ -30,7 +30,7 @@
         "symfony/phpunit-bridge": "~2.7",
         "symfony/serializer": "~2.7",
         "doctrine/orm": "~2.3",
-        "phpdocumentor/reflection": "~1.0"
+        "phpdocumentor/reflection": "dev-develop"
     },
     "conflict": {
         "phpdocumentor/reflection": "<1.0.7"
